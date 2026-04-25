@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Clock, TrendingUp, Wallet, BarChart3, Activity } from 'lucide-react';
+import { AlertTriangle, BadgeDollarSign, Clock, TrendingUp, Wallet, BarChart3, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,13 @@ import { PortfoyGrafik } from '@/components/charts/PortfoyGrafik';
 import { usePortfoy } from '@/hooks/usePortfoy';
 import { formatTL, formatLot, formatTarihKisa, karZararRenk } from '@/lib/utils';
 import api from '@/lib/api';
-import type { OzetGunlukDto, GunsonuDurumDto, ApiResponse } from '@/types';
+import type { OzetGunlukDto, GunsonuDurumDto, TemmettuOzetDto, ApiResponse } from '@/types';
 
 export default function DashboardPage() {
   const { ozet, pozisyonlar, loading } = usePortfoy();
   const [gecmis, setGecmis] = useState<OzetGunlukDto[]>([]);
   const [gunsonuDurum, setGunsonuDurum] = useState<GunsonuDurumDto | null>(null);
+  const [temmettuOzet, setTemmettuOzet] = useState<TemmettuOzetDto | null>(null);
   // undefined = yükleniyor, null = veri yok, string = zaman damgası
   const [sonGuncelleme, setSonGuncelleme] = useState<string | null | undefined>(undefined);
 
@@ -30,6 +31,7 @@ export default function DashboardPage() {
       })
       .catch(() => { setSonGuncelleme(null); });
     api.get<ApiResponse<GunsonuDurumDto>>(`/gunsonu/durum/${today}`).then((r) => setGunsonuDurum(r.data.data)).catch(() => {});
+    api.get<ApiResponse<TemmettuOzetDto>>('/temettular/ozet').then((r) => setTemmettuOzet(r.data.data)).catch(() => {});
   }, []);
 
   const trNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Istanbul' }));
@@ -137,6 +139,19 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {temmettuOzet && (
+        <Link href="/temmettu" className="block">
+          <div className="flex items-center gap-3 rounded-lg border border-green-600/30 bg-green-600/10 px-4 py-3 hover:bg-green-600/15 transition-colors">
+            <BadgeDollarSign className="h-4 w-4 text-green-500 shrink-0" />
+            <p className="text-sm text-green-500">
+              Bu yıl temettü geliri:{' '}
+              <span className="font-semibold">{formatTL(temmettuOzet.toplamNetBuYil)}</span>
+            </p>
+            <span className="ml-auto text-xs text-green-500 font-medium">Tümünü Gör →</span>
+          </div>
+        </Link>
+      )}
 
       {gecmis.length > 0 && (
         <Card>

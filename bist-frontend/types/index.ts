@@ -135,3 +135,50 @@ export interface ApiResponse<T> {
   message?: string;
   data: T;
 }
+
+// ====== TEMETTÜ ======
+export interface TemmettuDto {
+  id: number;
+  hisseSembol: string;
+  hisseSirketAdi: string;
+  yil: number;
+  hisseBasiTBrut: number;
+  hisseBasiNet: number;
+  stopajOrani: number;
+  odemeTarihi: string;
+  lot: number;
+  toplamBrut: number;
+  toplamNet: number;
+  notlar?: string;
+}
+
+export interface TemmettuOzetDto {
+  toplamNetTumZamanlar: number;
+  toplamNetBuYil: number;
+  temmettuSayisi: number;
+  yillikOzet: YillikTemmettuDto[];
+  hisseOzet: HisseTemmettuDto[];
+}
+
+export interface YillikTemmettuDto {
+  yil: number;
+  toplamNet: number;
+  toplamBrut: number;
+  islemSayisi: number;
+}
+
+export interface HisseTemmettuDto {
+  sembol: string;
+  sirketAdi: string;
+  toplamNet: number;
+  yil: number;
+}
+
+export interface TemmettuRequest {
+  sembol: string;
+  yil: number;
+  odemeTarihi: string;
+  hisseBasiTBrut: number;
+  stopajOrani: number;
+  notlar?: string;
+}

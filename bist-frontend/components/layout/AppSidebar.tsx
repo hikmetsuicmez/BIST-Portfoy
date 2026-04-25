@@ -9,6 +9,7 @@ import {
   TrendingDown,
   Moon,
   BarChart3,
+  BadgeDollarSign,
   LogOut,
   ChevronRight,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ const navItems = [
   { href: '/kapanis-fiyatlari', label: 'Kapanış Fiyatları', icon: TrendingDown },
   { href: '/gunsonu', label: 'Günsonu', icon: Moon },
   { href: '/raporlar', label: 'Raporlar', icon: BarChart3 },
+  { href: '/temmettu', label: 'Temettü', icon: BadgeDollarSign },
 ];
 
 export function AppSidebar() {

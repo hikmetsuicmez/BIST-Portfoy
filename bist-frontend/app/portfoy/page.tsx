@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,8 @@ import { KarZararBadge, YuzdeBadge } from '@/components/shared/KarZararBadge';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { usePortfoy } from '@/hooks/usePortfoy';
 import { formatTL, formatLot, formatTarihKisa, karZararRenk } from '@/lib/utils';
-import type { PozisyonDto } from '@/types';
+import api from '@/lib/api';
+import type { PozisyonDto, TemmettuOzetDto, ApiResponse } from '@/types';
 
 type SortKey = keyof PozisyonDto;
 
@@ -20,6 +21,20 @@ export default function PortfoyPage() {
   const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>('karZararYuzde');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [temmettuMap, setTemmettuMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    api
+      .get<ApiResponse<TemmettuOzetDto>>('/temettular/ozet')
+      .then((r) => {
+        const map: Record<string, number> = {};
+        r.data.data.hisseOzet.forEach((h) => {
+          map[h.sembol] = (map[h.sembol] ?? 0) + h.toplamNet;
+        });
+        setTemmettuMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -44,6 +59,8 @@ export default function PortfoyPage() {
     { key: 'karZararYuzde', label: 'K/Z (%)' },
     { key: 'ilkAlimTarihi', label: 'İlk Alım' },
   ];
+
+  const temmettuKolonu = 'Temettü Geliri';
 
   return (
     <div className="space-y-6">
@@ -103,6 +120,9 @@ export default function PortfoyPage() {
                         </Button>
                       </th>
                     ))}
+                    <th className="px-4 py-3 text-xs font-medium text-muted-foreground">
+                      {temmettuKolonu}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -132,6 +152,11 @@ export default function PortfoyPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground tabular-nums">
                         {formatTarihKisa(p.ilkAlimTarihi)}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums font-medium text-green-600">
+                        {temmettuMap[p.sembol] != null
+                          ? formatTL(temmettuMap[p.sembol])
+                          : <span className="text-muted-foreground">—</span>}
                       </td>
                     </tr>
                   ))}
