@@ -13,5 +13,7 @@ public record PortfoyOzetDto(
         BigDecimal gunlukDegisimTl,
         BigDecimal gunlukDegisimYuzde,
         int pozisyonSayisi,
-        List<PozisyonDto> pozisyonlar
+        List<PozisyonDto> pozisyonlar,
+        BigDecimal toplamTemmettuGeliri,
+        BigDecimal temmettuDahilGetiriYuzde
 ) {}

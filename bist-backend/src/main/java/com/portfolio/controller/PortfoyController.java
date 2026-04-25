@@ -4,6 +4,7 @@ import com.portfolio.dto.response.*;
 import com.portfolio.security.SecurityUtil;
 import com.portfolio.service.GunsonuService;
 import com.portfolio.service.PozisyonService;
+import com.portfolio.service.TemmettuService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +21,7 @@ public class PortfoyController {
 
     private final PozisyonService pozisyonService;
     private final GunsonuService gunsonuService;
+    private final TemmettuService temmettuService;
     private final SecurityUtil securityUtil;
 
     @GetMapping("/pozisyonlar")
@@ -47,6 +49,13 @@ public class PortfoyController {
         BigDecimal gunlukDegisimTl = gecmis.isEmpty() ? null : gecmis.get(0).gunlukDegisimTl();
         BigDecimal gunlukDegisimYuzde = gecmis.isEmpty() ? null : gecmis.get(0).gunlukDegisimYuzde();
 
+        BigDecimal toplamTemmettuGeliri = temmettuService.toplamNet();
+        BigDecimal temmettuDahilGetiriYuzde = toplamMaliyet.compareTo(BigDecimal.ZERO) > 0
+                ? toplamKarZararTl.add(toplamTemmettuGeliri)
+                        .divide(toplamMaliyet, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100))
+                : BigDecimal.ZERO;
+
         PortfoyOzetDto ozet = new PortfoyOzetDto(
                 LocalDate.now(),
                 toplamMaliyet,
@@ -56,7 +65,9 @@ public class PortfoyController {
                 gunlukDegisimTl,
                 gunlukDegisimYuzde,
                 pozisyonlar.size(),
-                pozisyonlar
+                pozisyonlar,
+                toplamTemmettuGeliri,
+                temmettuDahilGetiriYuzde
         );
 
         return ResponseEntity.ok(ApiResponse.success(ozet));
