@@ -20,12 +20,14 @@ export const useAuthStore = create<AuthState>()(
       login: (token, kullanici) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('jwt_token', token);
+          document.cookie = `jwt_token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
         }
         set({ token, kullanici });
       },
       logout: () => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('jwt_token');
+          document.cookie = 'jwt_token=; path=/; max-age=0';
         }
         set({ token: null, kullanici: null });
       },

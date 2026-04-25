@@ -16,14 +16,21 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import type { LoginResponse, ApiResponse } from '@/types';
 
-const loginSchema = z.object({
-  email: z.string().email('Geçerli bir e-posta girin'),
-  password: z.string().min(6, 'Şifre en az 6 karakter olmalı'),
-});
+const kayitSchema = z
+  .object({
+    ad: z.string().min(2, 'Ad en az 2 karakter olmalı'),
+    email: z.string().email('Geçerli e-posta girin'),
+    password: z.string().min(8, 'Şifre en az 8 karakter'),
+    passwordConfirm: z.string(),
+  })
+  .refine((data) => data.password === data.passwordConfirm, {
+    message: 'Şifreler eşleşmiyor',
+    path: ['passwordConfirm'],
+  });
 
-type LoginForm = z.infer<typeof loginSchema>;
+type KayitForm = z.infer<typeof kayitSchema>;
 
-export default function LoginPage() {
+export default function KayitPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const [loading, setLoading] = useState(false);
@@ -32,20 +39,24 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
+  } = useForm<KayitForm>({ resolver: zodResolver(kayitSchema) });
 
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data: KayitForm) => {
     setLoading(true);
     try {
-      const res = await api.post<ApiResponse<LoginResponse>>('/auth/login', data);
+      const res = await api.post<ApiResponse<LoginResponse>>('/auth/register', {
+        ad: data.ad,
+        email: data.email,
+        password: data.password,
+      });
       const { token, kullanici } = res.data.data;
       login(token, kullanici);
-      toast.success(`Hoş geldin, ${kullanici.ad}!`);
+      toast.success(`Hoş geldiniz, ${kullanici.ad}!`);
       router.push('/');
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'E-posta veya şifre hatalı';
+        'Kayıt işlemi başarısız';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -62,10 +73,22 @@ export default function LoginPage() {
             </div>
           </div>
           <CardTitle className="text-2xl">BIST Portföy</CardTitle>
-          <CardDescription>Hesabınıza giriş yapın</CardDescription>
+          <CardDescription>Yeni hesap oluşturun</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ad">Ad Soyad</Label>
+              <Input
+                id="ad"
+                type="text"
+                placeholder="Adınız Soyadınız"
+                {...register('ad')}
+              />
+              {errors.ad && (
+                <p className="text-xs text-red-600">{errors.ad.message}</p>
+              )}
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">E-posta</Label>
               <Input
@@ -90,21 +113,33 @@ export default function LoginPage() {
                 <p className="text-xs text-red-600">{errors.password.message}</p>
               )}
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="passwordConfirm">Şifre Tekrar</Label>
+              <Input
+                id="passwordConfirm"
+                type="password"
+                placeholder="••••••••"
+                {...register('passwordConfirm')}
+              />
+              {errors.passwordConfirm && (
+                <p className="text-xs text-red-600">{errors.passwordConfirm.message}</p>
+              )}
+            </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Giriş yapılıyor...
+                  Kayıt yapılıyor...
                 </>
               ) : (
-                'Giriş Yap'
+                'Kayıt Ol'
               )}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            Hesabınız yok mu?{' '}
-            <Link href="/kayit" className="text-primary font-medium hover:underline">
-              Kayıt olun →
+            Zaten hesabınız var mı?{' '}
+            <Link href="/login" className="text-primary font-medium hover:underline">
+              Giriş yapın →
             </Link>
           </div>
         </CardContent>
