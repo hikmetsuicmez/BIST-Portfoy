@@ -8,6 +8,7 @@ import com.portfolio.entity.*;
 import com.portfolio.exception.BusinessException;
 import com.portfolio.exception.ResourceNotFoundException;
 import com.portfolio.repository.*;
+import com.portfolio.security.SecurityUtil;
 import com.portfolio.service.PozisyonService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -30,12 +30,15 @@ public class PozisyonServiceImpl implements PozisyonService {
     private final HisseRepository hisseRepository;
     private final IslemRepository islemRepository;
     private final KapanisFiyatRepository kapanisFiyatRepository;
+    private final SecurityUtil securityUtil;
 
     @Override
     @Transactional
     public void pozisyonGuncelle(Hisse hisse, PortfoyIslem islem) {
-        PortfoyPozisyon pozisyon = pozisyonRepository.findByHisseId(hisse.getId())
-                .orElseGet(() -> PortfoyPozisyon.builder().hisse(hisse).build());
+        Kullanici kullanici = islem.getKullanici();
+        PortfoyPozisyon pozisyon = pozisyonRepository
+                .findByHisseIdAndKullaniciId(hisse.getId(), kullanici.getId())
+                .orElseGet(() -> PortfoyPozisyon.builder().hisse(hisse).kullanici(kullanici).build());
 
         if (IslemTuru.ALIM.equals(islem.getIslemTuru())) {
             islemleAlimiIsle(pozisyon, islem);
@@ -51,14 +54,15 @@ public class PozisyonServiceImpl implements PozisyonService {
     @Override
     @Transactional
     public void pozisyonuYenidenHesapla(Hisse hisse) {
-        List<PortfoyIslem> islemler = islemRepository.findByHisseIdOrderByTarihDesc(hisse.getId());
-        // Tarihe göre artan sırala (en eski önce)
+        Kullanici kullanici = securityUtil.getCurrentKullanici();
+        List<PortfoyIslem> islemler = islemRepository.findByKullaniciIdAndHisseId(kullanici.getId(), hisse.getId());
         List<PortfoyIslem> siraliIslemler = islemler.stream()
                 .sorted((a, b) -> a.getTarih().compareTo(b.getTarih()))
                 .toList();
 
-        PortfoyPozisyon pozisyon = pozisyonRepository.findByHisseId(hisse.getId())
-                .orElseGet(() -> PortfoyPozisyon.builder().hisse(hisse).build());
+        PortfoyPozisyon pozisyon = pozisyonRepository
+                .findByHisseIdAndKullaniciId(hisse.getId(), kullanici.getId())
+                .orElseGet(() -> PortfoyPozisyon.builder().hisse(hisse).kullanici(kullanici).build());
 
         pozisyon.setToplamLot(BigDecimal.ZERO);
         pozisyon.setOrtalamaMaliyet(BigDecimal.ZERO);
@@ -80,7 +84,8 @@ public class PozisyonServiceImpl implements PozisyonService {
 
     @Override
     public List<PozisyonDto> tumPozisyonlariGetir() {
-        return pozisyonRepository.findByToplamLotGreaterThan(BigDecimal.ZERO)
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        return pozisyonRepository.findByKullaniciIdAndToplamLotGreaterThan(kullaniciId, BigDecimal.ZERO)
                 .stream()
                 .map(this::toPozisyonDto)
                 .toList();
@@ -91,7 +96,8 @@ public class PozisyonServiceImpl implements PozisyonService {
         Hisse hisse = hisseRepository.findBySembol(sembol.toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("Hisse bulunamadı: " + sembol));
 
-        PortfoyPozisyon pozisyon = pozisyonRepository.findByHisseId(hisse.getId())
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        PortfoyPozisyon pozisyon = pozisyonRepository.findByHisseIdAndKullaniciId(hisse.getId(), kullaniciId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pozisyon bulunamadı: " + sembol));
 
         return toPozisyonDto(pozisyon);
@@ -102,7 +108,8 @@ public class PozisyonServiceImpl implements PozisyonService {
         Hisse hisse = hisseRepository.findBySembol(sembol.toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("Hisse bulunamadı: " + sembol));
 
-        PortfoyPozisyon pozisyon = pozisyonRepository.findByHisseId(hisse.getId())
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        PortfoyPozisyon pozisyon = pozisyonRepository.findByHisseIdAndKullaniciId(hisse.getId(), kullaniciId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pozisyon bulunamadı: " + sembol));
 
         BigDecimal sonFiyat = sonKapanisFiyatGetir(hisse.getId());
@@ -112,7 +119,7 @@ public class PozisyonServiceImpl implements PozisyonService {
         BigDecimal karZararTl = guncelDeger.subtract(pozisyon.getToplamMaliyet());
         BigDecimal karZararYuzde = hesaplaYuzde(karZararTl, pozisyon.getToplamMaliyet());
 
-        List<IslemDto> islemler = islemRepository.findByHisseIdOrderByTarihDesc(hisse.getId())
+        List<IslemDto> islemler = islemRepository.findByKullaniciIdAndHisseId(kullaniciId, hisse.getId())
                 .stream().map(IslemDto::from).toList();
 
         List<KapanisFiyatDto> fiyatlar = kapanisFiyatRepository
@@ -151,7 +158,6 @@ public class PozisyonServiceImpl implements PozisyonService {
                     + ", satılmak istenen=" + islem.getLot());
         }
         BigDecimal yeniToplamLot = pozisyon.getToplamLot().subtract(islem.getLot());
-        // Ortalama maliyet değişmez, toplam maliyet orantılı düşer
         BigDecimal yeniToplamMaliyet = yeniToplamLot.compareTo(BigDecimal.ZERO) > 0
                 ? yeniToplamLot.multiply(pozisyon.getOrtalamaMaliyet())
                 : BigDecimal.ZERO;

@@ -1,6 +1,7 @@
 package com.portfolio.controller;
 
 import com.portfolio.dto.response.*;
+import com.portfolio.security.SecurityUtil;
 import com.portfolio.service.GunsonuService;
 import com.portfolio.service.PozisyonService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class PortfoyController {
 
     private final PozisyonService pozisyonService;
     private final GunsonuService gunsonuService;
+    private final SecurityUtil securityUtil;
 
     @GetMapping("/pozisyonlar")
     public ResponseEntity<ApiResponse<List<PozisyonDto>>> pozisyonlar() {
@@ -40,7 +42,8 @@ public class PortfoyController {
                 ? toplamKarZararTl.divide(toplamMaliyet, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
                 : BigDecimal.ZERO;
 
-        List<PortfoyOzetGunlukDto> gecmis = gunsonuService.gecmisGunsonulariniGetir();
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        List<PortfoyOzetGunlukDto> gecmis = gunsonuService.gecmisGunsonulariniGetir(kullaniciId);
         BigDecimal gunlukDegisimTl = gecmis.isEmpty() ? null : gecmis.get(0).gunlukDegisimTl();
         BigDecimal gunlukDegisimYuzde = gecmis.isEmpty() ? null : gecmis.get(0).gunlukDegisimYuzde();
 
@@ -61,7 +64,8 @@ public class PortfoyController {
 
     @GetMapping("/gecmis")
     public ResponseEntity<ApiResponse<List<PortfoyOzetGunlukDto>>> gecmisSnapshots() {
-        return ResponseEntity.ok(ApiResponse.success(gunsonuService.gecmisGunsonulariniGetir()));
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        return ResponseEntity.ok(ApiResponse.success(gunsonuService.gecmisGunsonulariniGetir(kullaniciId)));
     }
 
     @GetMapping("/hisse/{sembol}")

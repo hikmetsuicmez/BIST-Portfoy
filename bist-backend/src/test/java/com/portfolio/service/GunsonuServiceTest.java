@@ -31,16 +31,21 @@ class GunsonuServiceTest {
     @Mock private KapanisFiyatRepository kapanisFiyatRepository;
     @Mock private GunlukDegisimRepository gunlukDegisimRepository;
     @Mock private OzetGunlukRepository ozetGunlukRepository;
+    @Mock private KullaniciRepository kullaniciRepository;
 
     @InjectMocks private GunsonuServiceImpl gunsonuService;
 
+    private static final Long KULLANICI_ID = 1L;
+
     private Hisse thyao;
     private Hisse garan;
+    private Kullanici kullanici;
 
     @BeforeEach
     void setup() {
         thyao = Hisse.builder().id(1L).sembol("THYAO").sirketAdi("Türk Hava Yolları").build();
         garan = Hisse.builder().id(2L).sembol("GARAN").sirketAdi("Garanti BBVA").build();
+        kullanici = Kullanici.builder().id(KULLANICI_ID).email("test@test.com").ad("Test").build();
     }
 
     // ---------------------------------------------------------------
@@ -54,6 +59,7 @@ class GunsonuServiceTest {
 
         PortfoyPozisyon pozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250.00"))
                 .toplamMaliyet(new BigDecimal("25000.00"))
@@ -71,7 +77,7 @@ class GunsonuServiceTest {
 
         stubBasariliGunsonu(tarih, List.of(pozisyon), 1L, bugunFiyat, List.of(dunkuFiyat));
 
-        GunsonuSonucDto sonuc = gunsonuService.gunsonuCalistir(tarih);
+        GunsonuSonucDto sonuc = gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID);
 
         assertThat(sonuc.basarili()).isTrue();
         assertThat(sonuc.islemSayisi()).isEqualTo(1);
@@ -97,6 +103,7 @@ class GunsonuServiceTest {
 
         PortfoyPozisyon pozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250.00"))
                 .toplamMaliyet(new BigDecimal("25000.00"))
@@ -109,7 +116,7 @@ class GunsonuServiceTest {
 
         stubBasariliGunsonu(tarih, List.of(pozisyon), 1L, bugunFiyat, List.of());
 
-        gunsonuService.gunsonuCalistir(tarih);
+        gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID);
 
         PortfoyGunlukDegisim degisim = getKaydedilecekDegisim();
 
@@ -128,6 +135,7 @@ class GunsonuServiceTest {
 
         PortfoyPozisyon pozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250.00"))
                 .toplamMaliyet(new BigDecimal("25000.00"))
@@ -140,7 +148,7 @@ class GunsonuServiceTest {
 
         stubBasariliGunsonu(tarih, List.of(pozisyon), 1L, bugunFiyat, List.of());
 
-        GunsonuSonucDto sonuc = gunsonuService.gunsonuCalistir(tarih);
+        GunsonuSonucDto sonuc = gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID);
 
         assertThat(sonuc.basarili()).isTrue();
         assertThat(sonuc.toplamKarZararTl()).isEqualByComparingTo("0");
@@ -157,6 +165,7 @@ class GunsonuServiceTest {
 
         PortfoyPozisyon thyaoPozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250"))
                 .toplamMaliyet(new BigDecimal("25000"))
@@ -164,6 +173,7 @@ class GunsonuServiceTest {
 
         PortfoyPozisyon garanPozisyon = PortfoyPozisyon.builder()
                 .hisse(garan)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("200"))
                 .ortalamaMaliyet(new BigDecimal("120"))
                 .toplamMaliyet(new BigDecimal("24000"))
@@ -175,18 +185,19 @@ class GunsonuServiceTest {
         KapanisFiyat garanFiyat = KapanisFiyat.builder()
                 .hisse(garan).tarih(tarih).kapanisFiyat(new BigDecimal("125")).build();
 
-        when(ozetGunlukRepository.existsByTarih(tarih)).thenReturn(false);
-        when(pozisyonRepository.findByToplamLotGreaterThan(BigDecimal.ZERO))
+        when(ozetGunlukRepository.existsByTarihAndKullaniciId(tarih, KULLANICI_ID)).thenReturn(false);
+        when(kullaniciRepository.findById(KULLANICI_ID)).thenReturn(Optional.of(kullanici));
+        when(pozisyonRepository.findByKullaniciIdAndToplamLotGreaterThan(KULLANICI_ID, BigDecimal.ZERO))
                 .thenReturn(List.of(thyaoPozisyon, garanPozisyon));
         when(kapanisFiyatRepository.findByHisseIdAndTarih(1L, tarih)).thenReturn(Optional.of(thyaoFiyat));
         when(kapanisFiyatRepository.findByHisseIdAndTarih(2L, tarih)).thenReturn(Optional.of(garanFiyat));
         when(kapanisFiyatRepository.findPreviousByHisseId(anyLong(), eq(tarih), any(Pageable.class)))
                 .thenReturn(List.of());
         when(gunlukDegisimRepository.saveAll(any())).thenAnswer(i -> i.getArguments()[0]);
-        when(ozetGunlukRepository.findTop30ByOrderByTarihDesc()).thenReturn(List.of());
+        when(ozetGunlukRepository.findTop30ByKullaniciIdOrderByTarihDesc(KULLANICI_ID)).thenReturn(List.of());
         when(ozetGunlukRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
 
-        GunsonuSonucDto sonuc = gunsonuService.gunsonuCalistir(tarih);
+        GunsonuSonucDto sonuc = gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID);
 
         assertThat(sonuc.islemSayisi()).isEqualTo(2);
         // toplamDeger = 100*279 + 200*125 = 27900 + 25000 = 52900
@@ -203,9 +214,9 @@ class GunsonuServiceTest {
     @DisplayName("Günsonu: Aynı gün iki kez çalıştırılmamalı — BusinessException fırlatılmalı")
     void gunsonuAyniGunIkinci_hataVerir() {
         LocalDate tarih = LocalDate.of(2024, 1, 15);
-        when(ozetGunlukRepository.existsByTarih(tarih)).thenReturn(true);
+        when(ozetGunlukRepository.existsByTarihAndKullaniciId(tarih, KULLANICI_ID)).thenReturn(true);
 
-        assertThatThrownBy(() -> gunsonuService.gunsonuCalistir(tarih))
+        assertThatThrownBy(() -> gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("zaten tamamlanmış");
     }
@@ -217,14 +228,16 @@ class GunsonuServiceTest {
 
         PortfoyPozisyon pozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .build();
 
-        when(ozetGunlukRepository.existsByTarih(tarih)).thenReturn(false);
-        when(pozisyonRepository.findByToplamLotGreaterThan(BigDecimal.ZERO)).thenReturn(List.of(pozisyon));
+        when(ozetGunlukRepository.existsByTarihAndKullaniciId(tarih, KULLANICI_ID)).thenReturn(false);
+        when(pozisyonRepository.findByKullaniciIdAndToplamLotGreaterThan(KULLANICI_ID, BigDecimal.ZERO))
+                .thenReturn(List.of(pozisyon));
         when(kapanisFiyatRepository.findByHisseIdAndTarih(1L, tarih)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> gunsonuService.gunsonuCalistir(tarih))
+        assertThatThrownBy(() -> gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("THYAO");
     }
@@ -234,10 +247,12 @@ class GunsonuServiceTest {
     void gunsonuAktifPozisyonYok_hataVerir() {
         LocalDate tarih = LocalDate.of(2024, 1, 15);
 
-        when(ozetGunlukRepository.existsByTarih(tarih)).thenReturn(false);
-        when(pozisyonRepository.findByToplamLotGreaterThan(BigDecimal.ZERO)).thenReturn(List.of());
+        when(ozetGunlukRepository.existsByTarihAndKullaniciId(tarih, KULLANICI_ID)).thenReturn(false);
+        when(kullaniciRepository.findById(KULLANICI_ID)).thenReturn(Optional.of(kullanici));
+        when(pozisyonRepository.findByKullaniciIdAndToplamLotGreaterThan(KULLANICI_ID, BigDecimal.ZERO))
+                .thenReturn(List.of());
 
-        assertThatThrownBy(() -> gunsonuService.gunsonuCalistir(tarih))
+        assertThatThrownBy(() -> gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Aktif pozisyon");
     }
@@ -253,6 +268,7 @@ class GunsonuServiceTest {
 
         PortfoyPozisyon pozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250"))
                 .toplamMaliyet(new BigDecimal("25000"))
@@ -265,7 +281,7 @@ class GunsonuServiceTest {
 
         stubBasariliGunsonu(tarih, List.of(pozisyon), 1L, bugunFiyat, List.of());
 
-        gunsonuService.gunsonuCalistir(tarih);
+        gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID);
 
         PortfoyGunlukDegisim degisim = getKaydedilecekDegisim();
 
@@ -287,6 +303,7 @@ class GunsonuServiceTest {
 
         PortfoyPozisyon pozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250"))
                 .toplamMaliyet(new BigDecimal("25000"))
@@ -298,7 +315,7 @@ class GunsonuServiceTest {
 
         stubBasariliGunsonu(tarih, List.of(pozisyon), 1L, bugunFiyat, List.of());
 
-        gunsonuService.gunsonuCalistir(tarih);
+        gunsonuService.gunsonuCalistir(tarih, KULLANICI_ID);
 
         verify(gunlukDegisimRepository, times(1)).saveAll(anyList());
         verify(ozetGunlukRepository, times(1)).save(any(PortfoyOzetGunluk.class));
@@ -313,14 +330,16 @@ class GunsonuServiceTest {
                                      Long hisseId,
                                      KapanisFiyat bugunFiyat,
                                      List<KapanisFiyat> oncekiFiyatlar) {
-        when(ozetGunlukRepository.existsByTarih(tarih)).thenReturn(false);
-        when(pozisyonRepository.findByToplamLotGreaterThan(BigDecimal.ZERO)).thenReturn(pozisyonlar);
+        when(ozetGunlukRepository.existsByTarihAndKullaniciId(tarih, KULLANICI_ID)).thenReturn(false);
+        when(kullaniciRepository.findById(KULLANICI_ID)).thenReturn(Optional.of(kullanici));
+        when(pozisyonRepository.findByKullaniciIdAndToplamLotGreaterThan(KULLANICI_ID, BigDecimal.ZERO))
+                .thenReturn(pozisyonlar);
         when(kapanisFiyatRepository.findByHisseIdAndTarih(hisseId, tarih))
                 .thenReturn(Optional.of(bugunFiyat));
         when(kapanisFiyatRepository.findPreviousByHisseId(eq(hisseId), eq(tarih), any(Pageable.class)))
                 .thenReturn(oncekiFiyatlar);
         when(gunlukDegisimRepository.saveAll(any())).thenAnswer(i -> i.getArguments()[0]);
-        when(ozetGunlukRepository.findTop30ByOrderByTarihDesc()).thenReturn(List.of());
+        when(ozetGunlukRepository.findTop30ByKullaniciIdOrderByTarihDesc(KULLANICI_ID)).thenReturn(List.of());
         when(ozetGunlukRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
     }
 

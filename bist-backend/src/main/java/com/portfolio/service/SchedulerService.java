@@ -1,5 +1,7 @@
 package com.portfolio.service;
 
+import com.portfolio.entity.Kullanici;
+import com.portfolio.repository.KullaniciRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -7,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -17,6 +20,7 @@ public class SchedulerService {
 
     private final YahooFinanceService yahooFinanceService;
     private final GunsonuService gunsonuService;
+    private final KullaniciRepository kullaniciRepository;
 
     // 2024, 2025 ve 2026 yılları için BIST resmi tatil günleri.
     // Hafta sonu tatilleri @Scheduled cron ifadesindeki MON-FRI kısıtı ile zaten
@@ -84,11 +88,18 @@ public class SchedulerService {
         try {
             int guncellenen = yahooFinanceService.fiyatlariCek(bugun);
             log.info("[Scheduler] {} hisse fiyatı Yahoo Finance'den çekildi", guncellenen);
-
-            gunsonuService.gunsonuCalistir(bugun);
-            log.info("[Scheduler] {} günsonu başarıyla tamamlandı", bugun);
         } catch (Exception e) {
-            log.error("[Scheduler] {} günsonu hatası: {}", bugun, e.getMessage(), e);
+            log.error("[Scheduler] {} fiyat çekme hatası: {}", bugun, e.getMessage(), e);
+        }
+
+        List<Kullanici> aktifKullanicilar = kullaniciRepository.findByAktifTrue();
+        for (Kullanici kullanici : aktifKullanicilar) {
+            try {
+                gunsonuService.gunsonuCalistir(bugun, kullanici.getId());
+                log.info("[Scheduler] {} günsonu tamamlandı - kullanici: {}", bugun, kullanici.getId());
+            } catch (Exception e) {
+                log.error("[Scheduler] Günsonu hatası - kullanici: {}", kullanici.getId(), e);
+            }
         }
     }
 }

@@ -18,6 +18,8 @@ public interface GunlukDegisimRepository extends JpaRepository<PortfoyGunlukDegi
 
     Optional<PortfoyGunlukDegisim> findByTarihAndHisseId(LocalDate tarih, Long hisseId);
 
+    List<PortfoyGunlukDegisim> findByTarihAndKullaniciId(LocalDate tarih, Long kullaniciId);
+
     @Query("SELECT g FROM PortfoyGunlukDegisim g WHERE g.hisse.id = :hisseId ORDER BY g.tarih DESC")
     List<PortfoyGunlukDegisim> findByHisseIdOrderByTarihDesc(@Param("hisseId") Long hisseId, Pageable pageable);
 

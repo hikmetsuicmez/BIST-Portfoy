@@ -13,5 +13,11 @@ public interface PozisyonRepository extends JpaRepository<PortfoyPozisyon, Long>
 
     Optional<PortfoyPozisyon> findByHisseId(Long hisseId);
 
+    Optional<PortfoyPozisyon> findByHisseIdAndKullaniciId(Long hisseId, Long kullaniciId);
+
+    List<PortfoyPozisyon> findByKullaniciId(Long kullaniciId);
+
     List<PortfoyPozisyon> findByToplamLotGreaterThan(BigDecimal minLot);
+
+    List<PortfoyPozisyon> findByKullaniciIdAndToplamLotGreaterThan(Long kullaniciId, BigDecimal minLot);
 }

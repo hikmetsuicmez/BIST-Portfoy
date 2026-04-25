@@ -3,6 +3,7 @@ package com.portfolio.service;
 import com.portfolio.entity.*;
 import com.portfolio.exception.BusinessException;
 import com.portfolio.repository.*;
+import com.portfolio.security.SecurityUtil;
 import com.portfolio.service.impl.PozisyonServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,14 +29,19 @@ class PozisyonServiceTest {
     @Mock private HisseRepository hisseRepository;
     @Mock private IslemRepository islemRepository;
     @Mock private KapanisFiyatRepository kapanisFiyatRepository;
+    @Mock private SecurityUtil securityUtil;
 
     @InjectMocks private PozisyonServiceImpl pozisyonService;
 
+    private static final Long KULLANICI_ID = 1L;
+
     private Hisse thyao;
+    private Kullanici kullanici;
 
     @BeforeEach
     void setup() {
         thyao = Hisse.builder().id(1L).sembol("THYAO").sirketAdi("Türk Hava Yolları").build();
+        kullanici = Kullanici.builder().id(KULLANICI_ID).email("test@test.com").ad("Test").build();
     }
 
     // ---------------------------------------------------------------
@@ -47,6 +53,7 @@ class PozisyonServiceTest {
     void alimYeniPozisyon_dogruHesap() {
         PortfoyIslem alim = PortfoyIslem.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .islemTuru(IslemTuru.ALIM)
                 .lot(new BigDecimal("100"))
                 .fiyat(new BigDecimal("250"))
@@ -55,7 +62,7 @@ class PozisyonServiceTest {
                 .tarih(LocalDate.of(2024, 1, 10))
                 .build();
 
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.empty());
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.empty());
         when(pozisyonRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
 
         pozisyonService.pozisyonGuncelle(thyao, alim);
@@ -78,6 +85,7 @@ class PozisyonServiceTest {
     void alimMevcutPozisyon_agirlikliOrtalamaDoğru() {
         PortfoyPozisyon mevcut = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250"))
                 .toplamMaliyet(new BigDecimal("25000"))
@@ -86,6 +94,7 @@ class PozisyonServiceTest {
 
         PortfoyIslem yeniAlim = PortfoyIslem.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .islemTuru(IslemTuru.ALIM)
                 .lot(new BigDecimal("100"))
                 .fiyat(new BigDecimal("300"))
@@ -94,7 +103,7 @@ class PozisyonServiceTest {
                 .tarih(LocalDate.of(2024, 1, 10))
                 .build();
 
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(mevcut));
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(mevcut));
         when(pozisyonRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
 
         pozisyonService.pozisyonGuncelle(thyao, yeniAlim);
@@ -118,6 +127,7 @@ class PozisyonServiceTest {
         // Mevcut: 100 lot @ 250 = 25000
         PortfoyPozisyon mevcut = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250"))
                 .toplamMaliyet(new BigDecimal("25000"))
@@ -126,6 +136,7 @@ class PozisyonServiceTest {
         // Yeni alım: 200 lot @ 300 = 60000 → toplam 85000 / 300 = 283.3333
         PortfoyIslem yeniAlim = PortfoyIslem.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .islemTuru(IslemTuru.ALIM)
                 .lot(new BigDecimal("200"))
                 .fiyat(new BigDecimal("300"))
@@ -134,7 +145,7 @@ class PozisyonServiceTest {
                 .tarih(LocalDate.now())
                 .build();
 
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(mevcut));
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(mevcut));
         when(pozisyonRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
 
         pozisyonService.pozisyonGuncelle(thyao, yeniAlim);
@@ -154,6 +165,7 @@ class PozisyonServiceTest {
     void alimKomisyonlu_maliyeteEklenir() {
         PortfoyIslem alim = PortfoyIslem.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .islemTuru(IslemTuru.ALIM)
                 .lot(new BigDecimal("100"))
                 .fiyat(new BigDecimal("250"))
@@ -162,7 +174,7 @@ class PozisyonServiceTest {
                 .tarih(LocalDate.now())
                 .build();
 
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.empty());
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.empty());
         when(pozisyonRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
 
         pozisyonService.pozisyonGuncelle(thyao, alim);
@@ -183,6 +195,7 @@ class PozisyonServiceTest {
     void satimIslem_lotAzaltilirMaliyetDuser() {
         PortfoyPozisyon mevcut = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("200"))
                 .ortalamaMaliyet(new BigDecimal("275"))
                 .toplamMaliyet(new BigDecimal("55000"))
@@ -190,6 +203,7 @@ class PozisyonServiceTest {
 
         PortfoyIslem satim = PortfoyIslem.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .islemTuru(IslemTuru.SATIM)
                 .lot(new BigDecimal("100"))
                 .fiyat(new BigDecimal("320"))
@@ -198,7 +212,7 @@ class PozisyonServiceTest {
                 .tarih(LocalDate.now())
                 .build();
 
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(mevcut));
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(mevcut));
         when(pozisyonRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
 
         pozisyonService.pozisyonGuncelle(thyao, satim);
@@ -219,6 +233,7 @@ class PozisyonServiceTest {
     void satimTumLot_maliyetSifirOlur() {
         PortfoyPozisyon mevcut = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("100"))
                 .ortalamaMaliyet(new BigDecimal("250"))
                 .toplamMaliyet(new BigDecimal("25000"))
@@ -226,6 +241,7 @@ class PozisyonServiceTest {
 
         PortfoyIslem satim = PortfoyIslem.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .islemTuru(IslemTuru.SATIM)
                 .lot(new BigDecimal("100"))
                 .fiyat(new BigDecimal("300"))
@@ -234,7 +250,7 @@ class PozisyonServiceTest {
                 .tarih(LocalDate.now())
                 .build();
 
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(mevcut));
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(mevcut));
         when(pozisyonRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
 
         pozisyonService.pozisyonGuncelle(thyao, satim);
@@ -251,6 +267,7 @@ class PozisyonServiceTest {
     void satimYetersizLot_hataVerir() {
         PortfoyPozisyon mevcut = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("50"))
                 .ortalamaMaliyet(new BigDecimal("275"))
                 .toplamMaliyet(new BigDecimal("13750"))
@@ -258,6 +275,7 @@ class PozisyonServiceTest {
 
         PortfoyIslem satim = PortfoyIslem.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .islemTuru(IslemTuru.SATIM)
                 .lot(new BigDecimal("100"))
                 .fiyat(new BigDecimal("320"))
@@ -266,7 +284,7 @@ class PozisyonServiceTest {
                 .tarih(LocalDate.now())
                 .build();
 
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(mevcut));
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(mevcut));
 
         assertThatThrownBy(() -> pozisyonService.pozisyonGuncelle(thyao, satim))
                 .isInstanceOf(BusinessException.class)
@@ -280,11 +298,13 @@ class PozisyonServiceTest {
     void satimPozisyonYok_hataVerir() {
         PortfoyPozisyon bosEPozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 // toplamLot default = 0
                 .build();
 
         PortfoyIslem satim = PortfoyIslem.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .islemTuru(IslemTuru.SATIM)
                 .lot(new BigDecimal("100"))
                 .fiyat(new BigDecimal("300"))
@@ -293,7 +313,7 @@ class PozisyonServiceTest {
                 .tarih(LocalDate.now())
                 .build();
 
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(bosEPozisyon));
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(bosEPozisyon));
 
         assertThatThrownBy(() -> pozisyonService.pozisyonGuncelle(thyao, satim))
                 .isInstanceOf(BusinessException.class)

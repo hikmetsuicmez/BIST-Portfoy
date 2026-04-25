@@ -22,6 +22,10 @@ public class PortfoyIslem {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "kullanici_id", nullable = false)
+    private Kullanici kullanici;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hisse_id", nullable = false)
     private Hisse hisse;
 

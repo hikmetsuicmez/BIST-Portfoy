@@ -7,6 +7,7 @@ import com.portfolio.entity.*;
 import com.portfolio.exception.BusinessException;
 import com.portfolio.exception.ResourceNotFoundException;
 import com.portfolio.repository.*;
+import com.portfolio.security.SecurityUtil;
 import com.portfolio.service.impl.IslemServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,14 +34,19 @@ class IslemServiceTest {
     @Mock private HisseRepository hisseRepository;
     @Mock private PozisyonRepository pozisyonRepository;
     @Mock private PozisyonService pozisyonService;
+    @Mock private SecurityUtil securityUtil;
 
     @InjectMocks private IslemServiceImpl islemService;
 
+    private static final Long KULLANICI_ID = 1L;
+
     private Hisse thyao;
+    private Kullanici kullanici;
 
     @BeforeEach
     void setup() {
         thyao = Hisse.builder().id(1L).sembol("THYAO").sirketAdi("Türk Hava Yolları").build();
+        kullanici = Kullanici.builder().id(KULLANICI_ID).email("test@test.com").ad("Test").build();
     }
 
     // ---------------------------------------------------------------
@@ -61,6 +67,7 @@ class IslemServiceTest {
 
         PortfoyIslem kaydedilen = PortfoyIslem.builder()
                 .id(1L)
+                .kullanici(kullanici)
                 .hisse(thyao)
                 .islemTuru(IslemTuru.ALIM)
                 .tarih(request.tarih())
@@ -71,6 +78,7 @@ class IslemServiceTest {
                 .build();
 
         when(hisseRepository.findBySembol("THYAO")).thenReturn(Optional.of(thyao));
+        when(securityUtil.getCurrentKullanici()).thenReturn(kullanici);
         when(islemRepository.save(any(PortfoyIslem.class))).thenReturn(kaydedilen);
 
         IslemDto sonuc = islemService.islemEkle(request);
@@ -94,7 +102,7 @@ class IslemServiceTest {
         );
 
         PortfoyIslem kaydedilen = PortfoyIslem.builder()
-                .id(1L).hisse(thyao)
+                .id(1L).kullanici(kullanici).hisse(thyao)
                 .islemTuru(IslemTuru.ALIM)
                 .tarih(request.tarih())
                 .lot(request.lot())
@@ -104,6 +112,7 @@ class IslemServiceTest {
                 .build();
 
         when(hisseRepository.findBySembol("THYAO")).thenReturn(Optional.of(thyao));
+        when(securityUtil.getCurrentKullanici()).thenReturn(kullanici);
         when(islemRepository.save(any(PortfoyIslem.class))).thenReturn(kaydedilen);
 
         ArgumentCaptor<PortfoyIslem> captor = ArgumentCaptor.forClass(PortfoyIslem.class);
@@ -130,7 +139,7 @@ class IslemServiceTest {
         );
 
         PortfoyIslem kaydedilen = PortfoyIslem.builder()
-                .id(1L).hisse(thyao)
+                .id(1L).kullanici(kullanici).hisse(thyao)
                 .islemTuru(IslemTuru.ALIM)
                 .tarih(request.tarih())
                 .lot(request.lot())
@@ -140,6 +149,7 @@ class IslemServiceTest {
                 .build();
 
         when(hisseRepository.findBySembol("THYAO")).thenReturn(Optional.of(thyao));
+        when(securityUtil.getCurrentKullanici()).thenReturn(kullanici);
         when(islemRepository.save(any(PortfoyIslem.class))).thenReturn(kaydedilen);
 
         ArgumentCaptor<PortfoyIslem> captor = ArgumentCaptor.forClass(PortfoyIslem.class);
@@ -162,6 +172,7 @@ class IslemServiceTest {
     void satimToplamTutar_komisyonDusulur() {
         PortfoyPozisyon mevcutPozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("200"))
                 .ortalamaMaliyet(new BigDecimal("275"))
                 .toplamMaliyet(new BigDecimal("55000"))
@@ -177,7 +188,7 @@ class IslemServiceTest {
         );
 
         PortfoyIslem kaydedilen = PortfoyIslem.builder()
-                .id(2L).hisse(thyao)
+                .id(2L).kullanici(kullanici).hisse(thyao)
                 .islemTuru(IslemTuru.SATIM)
                 .tarih(request.tarih())
                 .lot(request.lot())
@@ -187,7 +198,9 @@ class IslemServiceTest {
                 .build();
 
         when(hisseRepository.findBySembol("THYAO")).thenReturn(Optional.of(thyao));
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(mevcutPozisyon));
+        when(securityUtil.getCurrentKullanici()).thenReturn(kullanici);
+        when(securityUtil.getCurrentKullaniciId()).thenReturn(KULLANICI_ID);
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(mevcutPozisyon));
         when(islemRepository.save(any(PortfoyIslem.class))).thenReturn(kaydedilen);
 
         ArgumentCaptor<PortfoyIslem> captor = ArgumentCaptor.forClass(PortfoyIslem.class);
@@ -205,6 +218,7 @@ class IslemServiceTest {
     void satimYeterliLot_basarili() {
         PortfoyPozisyon mevcutPozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("200"))
                 .ortalamaMaliyet(new BigDecimal("275"))
                 .toplamMaliyet(new BigDecimal("55000"))
@@ -220,7 +234,7 @@ class IslemServiceTest {
         );
 
         PortfoyIslem kaydedilen = PortfoyIslem.builder()
-                .id(2L).hisse(thyao)
+                .id(2L).kullanici(kullanici).hisse(thyao)
                 .islemTuru(IslemTuru.SATIM)
                 .tarih(request.tarih())
                 .lot(request.lot())
@@ -230,7 +244,9 @@ class IslemServiceTest {
                 .build();
 
         when(hisseRepository.findBySembol("THYAO")).thenReturn(Optional.of(thyao));
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(mevcutPozisyon));
+        when(securityUtil.getCurrentKullanici()).thenReturn(kullanici);
+        when(securityUtil.getCurrentKullaniciId()).thenReturn(KULLANICI_ID);
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(mevcutPozisyon));
         when(islemRepository.save(any(PortfoyIslem.class))).thenReturn(kaydedilen);
 
         assertThatNoException().isThrownBy(() -> islemService.islemEkle(request));
@@ -242,6 +258,7 @@ class IslemServiceTest {
     void satimYetersizLot_hataVerir() {
         PortfoyPozisyon mevcutPozisyon = PortfoyPozisyon.builder()
                 .hisse(thyao)
+                .kullanici(kullanici)
                 .toplamLot(new BigDecimal("50"))
                 .build();
 
@@ -255,7 +272,8 @@ class IslemServiceTest {
         );
 
         when(hisseRepository.findBySembol("THYAO")).thenReturn(Optional.of(thyao));
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.of(mevcutPozisyon));
+        when(securityUtil.getCurrentKullaniciId()).thenReturn(KULLANICI_ID);
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.of(mevcutPozisyon));
 
         assertThatThrownBy(() -> islemService.islemEkle(request))
                 .isInstanceOf(BusinessException.class)
@@ -278,7 +296,8 @@ class IslemServiceTest {
         );
 
         when(hisseRepository.findBySembol("THYAO")).thenReturn(Optional.of(thyao));
-        when(pozisyonRepository.findByHisseId(1L)).thenReturn(Optional.empty());
+        when(securityUtil.getCurrentKullaniciId()).thenReturn(KULLANICI_ID);
+        when(pozisyonRepository.findByHisseIdAndKullaniciId(1L, KULLANICI_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> islemService.islemEkle(request))
                 .isInstanceOf(BusinessException.class)
@@ -336,6 +355,7 @@ class IslemServiceTest {
     void islemSil_basarili_pozisyonYenidenHesaplaniyor() {
         PortfoyIslem islem = PortfoyIslem.builder()
                 .id(1L)
+                .kullanici(kullanici)
                 .hisse(thyao)
                 .islemTuru(IslemTuru.ALIM)
                 .lot(new BigDecimal("100"))
@@ -346,6 +366,7 @@ class IslemServiceTest {
                 .build();
 
         when(islemRepository.findById(1L)).thenReturn(Optional.of(islem));
+        when(securityUtil.getCurrentKullaniciId()).thenReturn(KULLANICI_ID);
         doNothing().when(islemRepository).delete(islem);
         doNothing().when(pozisyonService).pozisyonuYenidenHesapla(thyao);
 
@@ -365,12 +386,13 @@ class IslemServiceTest {
         IslemFiltre filtre = new IslemFiltre(null, null, null, null);
 
         PortfoyIslem alim = PortfoyIslem.builder()
-                .id(1L).hisse(thyao).islemTuru(IslemTuru.ALIM)
+                .id(1L).kullanici(kullanici).hisse(thyao).islemTuru(IslemTuru.ALIM)
                 .lot(new BigDecimal("100")).fiyat(new BigDecimal("250"))
                 .komisyon(BigDecimal.ZERO).toplamTutar(new BigDecimal("25000"))
                 .tarih(LocalDate.of(2024, 1, 10)).build();
 
-        when(islemRepository.findAllByOrderByTarihDesc()).thenReturn(List.of(alim));
+        when(securityUtil.getCurrentKullaniciId()).thenReturn(KULLANICI_ID);
+        when(islemRepository.findByKullaniciId(KULLANICI_ID)).thenReturn(List.of(alim));
 
         List<IslemDto> sonuc = islemService.islemleriGetir(filtre);
 
@@ -384,18 +406,19 @@ class IslemServiceTest {
         IslemFiltre filtre = new IslemFiltre(null, null, null, IslemTuru.ALIM);
 
         PortfoyIslem alim = PortfoyIslem.builder()
-                .id(1L).hisse(thyao).islemTuru(IslemTuru.ALIM)
+                .id(1L).kullanici(kullanici).hisse(thyao).islemTuru(IslemTuru.ALIM)
                 .lot(new BigDecimal("100")).fiyat(new BigDecimal("250"))
                 .komisyon(BigDecimal.ZERO).toplamTutar(new BigDecimal("25000"))
                 .tarih(LocalDate.of(2024, 1, 10)).build();
 
         PortfoyIslem satim = PortfoyIslem.builder()
-                .id(2L).hisse(thyao).islemTuru(IslemTuru.SATIM)
+                .id(2L).kullanici(kullanici).hisse(thyao).islemTuru(IslemTuru.SATIM)
                 .lot(new BigDecimal("50")).fiyat(new BigDecimal("300"))
                 .komisyon(BigDecimal.ZERO).toplamTutar(new BigDecimal("15000"))
                 .tarih(LocalDate.of(2024, 1, 12)).build();
 
-        when(islemRepository.findAllByOrderByTarihDesc()).thenReturn(List.of(alim, satim));
+        when(securityUtil.getCurrentKullaniciId()).thenReturn(KULLANICI_ID);
+        when(islemRepository.findByKullaniciId(KULLANICI_ID)).thenReturn(List.of(alim, satim));
 
         List<IslemDto> sonuc = islemService.islemleriGetir(filtre);
 

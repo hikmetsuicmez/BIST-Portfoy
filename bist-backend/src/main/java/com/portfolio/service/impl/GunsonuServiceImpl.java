@@ -5,7 +5,6 @@ import com.portfolio.dto.response.GunsonuSonucDto;
 import com.portfolio.dto.response.PortfoyOzetGunlukDto;
 import com.portfolio.entity.*;
 import com.portfolio.exception.BusinessException;
-import com.portfolio.exception.ResourceNotFoundException;
 import com.portfolio.repository.*;
 import com.portfolio.service.GunsonuService;
 import lombok.RequiredArgsConstructor;
@@ -30,14 +29,19 @@ public class GunsonuServiceImpl implements GunsonuService {
     private final KapanisFiyatRepository kapanisFiyatRepository;
     private final GunlukDegisimRepository gunlukDegisimRepository;
     private final OzetGunlukRepository ozetGunlukRepository;
+    private final KullaniciRepository kullaniciRepository;
 
     @Override
     @Transactional
-    public GunsonuSonucDto gunsonuCalistir(LocalDate tarih) {
-        dogrulaGunsonuCalisamaz(tarih);
-        dogrulaFiyatlarGirilmis(tarih);
+    public GunsonuSonucDto gunsonuCalistir(LocalDate tarih, Long kullaniciId) {
+        dogrulaGunsonuCalisamaz(tarih, kullaniciId);
+        dogrulaFiyatlarGirilmis(tarih, kullaniciId);
 
-        List<PortfoyPozisyon> pozisyonlar = pozisyonRepository.findByToplamLotGreaterThan(BigDecimal.ZERO);
+        Kullanici kullanici = kullaniciRepository.findById(kullaniciId)
+                .orElseThrow(() -> new BusinessException("Kullanıcı bulunamadı: " + kullaniciId));
+
+        List<PortfoyPozisyon> pozisyonlar = pozisyonRepository
+                .findByKullaniciIdAndToplamLotGreaterThan(kullaniciId, BigDecimal.ZERO);
         if (pozisyonlar.isEmpty()) {
             throw new BusinessException("Aktif pozisyon bulunamadı");
         }
@@ -73,6 +77,7 @@ public class GunsonuServiceImpl implements GunsonuService {
 
             PortfoyGunlukDegisim degisim = PortfoyGunlukDegisim.builder()
                     .tarih(tarih)
+                    .kullanici(kullanici)
                     .hisse(pozisyon.getHisse())
                     .lot(pozisyon.getToplamLot())
                     .ortalamaMaliyet(pozisyon.getOrtalamaMaliyet())
@@ -92,9 +97,10 @@ public class GunsonuServiceImpl implements GunsonuService {
         }
 
         gunlukDegisimRepository.saveAll(degisimler);
-        ozetKaydet(tarih, toplamMaliyet, toplamDeger, pozisyonlar.size());
+        ozetKaydet(tarih, kullanici, toplamMaliyet, toplamDeger, pozisyonlar.size());
 
-        log.debug("Günsonu tamamlandı: tarih={}, pozisyon={}, toplamDeger={}", tarih, pozisyonlar.size(), toplamDeger);
+        log.debug("Günsonu tamamlandı: tarih={}, kullanici={}, pozisyon={}, toplamDeger={}",
+                tarih, kullaniciId, pozisyonlar.size(), toplamDeger);
 
         BigDecimal toplamKarZararTl = toplamDeger.subtract(toplamMaliyet);
         return GunsonuSonucDto.builder()
@@ -107,10 +113,10 @@ public class GunsonuServiceImpl implements GunsonuService {
     }
 
     @Override
-    public GunsonuDurumDto gunsonuDurumGetir(LocalDate tarih) {
-        List<String> eksikFiyatlar = eksikFiyatlariGetir(tarih);
+    public GunsonuDurumDto gunsonuDurumGetir(LocalDate tarih, Long kullaniciId) {
+        List<String> eksikFiyatlar = eksikFiyatlariGetir(tarih, kullaniciId);
 
-        return ozetGunlukRepository.findByTarih(tarih)
+        return ozetGunlukRepository.findByTarihAndKullaniciId(tarih, kullaniciId)
                 .map(ozet -> new GunsonuDurumDto(
                         tarih,
                         ozet.getGunsonuTamamlandi(),
@@ -122,42 +128,44 @@ public class GunsonuServiceImpl implements GunsonuService {
     }
 
     @Override
-    public List<PortfoyOzetGunlukDto> gecmisGunsonulariniGetir() {
-        return ozetGunlukRepository.findTop30ByOrderByTarihDesc()
+    public List<PortfoyOzetGunlukDto> gecmisGunsonulariniGetir(Long kullaniciId) {
+        return ozetGunlukRepository.findTop30ByKullaniciIdOrderByTarihDesc(kullaniciId)
                 .stream()
                 .map(PortfoyOzetGunlukDto::from)
                 .toList();
     }
 
     @Override
-    public List<String> eksikFiyatlariGetir(LocalDate tarih) {
-        return pozisyonRepository.findByToplamLotGreaterThan(BigDecimal.ZERO)
+    public List<String> eksikFiyatlariGetir(LocalDate tarih, Long kullaniciId) {
+        return pozisyonRepository.findByKullaniciIdAndToplamLotGreaterThan(kullaniciId, BigDecimal.ZERO)
                 .stream()
                 .filter(p -> kapanisFiyatRepository.findByHisseIdAndTarih(p.getHisse().getId(), tarih).isEmpty())
                 .map(p -> p.getHisse().getSembol())
                 .toList();
     }
 
-    private void dogrulaGunsonuCalisamaz(LocalDate tarih) {
-        if (ozetGunlukRepository.existsByTarih(tarih)) {
+    private void dogrulaGunsonuCalisamaz(LocalDate tarih, Long kullaniciId) {
+        if (ozetGunlukRepository.existsByTarihAndKullaniciId(tarih, kullaniciId)) {
             throw new BusinessException("Bu tarih için günsonu zaten tamamlanmış: " + tarih);
         }
     }
 
-    private void dogrulaFiyatlarGirilmis(LocalDate tarih) {
-        List<String> eksik = eksikFiyatlariGetir(tarih);
+    private void dogrulaFiyatlarGirilmis(LocalDate tarih, Long kullaniciId) {
+        List<String> eksik = eksikFiyatlariGetir(tarih, kullaniciId);
         if (!eksik.isEmpty()) {
             throw new BusinessException("Fiyat girilmemiş hisseler: " + String.join(", ", eksik));
         }
     }
 
-    private void ozetKaydet(LocalDate tarih, BigDecimal toplamMaliyet, BigDecimal toplamDeger, int pozisyonSayisi) {
+    private void ozetKaydet(LocalDate tarih, Kullanici kullanici, BigDecimal toplamMaliyet,
+                             BigDecimal toplamDeger, int pozisyonSayisi) {
         BigDecimal toplamKarZararTl = toplamDeger.subtract(toplamMaliyet);
         BigDecimal toplamKarZararYuzde = toplamMaliyet.compareTo(BigDecimal.ZERO) > 0
                 ? toplamKarZararTl.divide(toplamMaliyet, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
                 : BigDecimal.ZERO;
 
-        PortfoyOzetGunluk onceki = ozetGunlukRepository.findTop30ByOrderByTarihDesc()
+        PortfoyOzetGunluk onceki = ozetGunlukRepository
+                .findTop30ByKullaniciIdOrderByTarihDesc(kullanici.getId())
                 .stream().filter(o -> o.getTarih().isBefore(tarih)).findFirst().orElse(null);
 
         BigDecimal gunlukDegisimTl = onceki != null ? toplamDeger.subtract(onceki.getToplamDeger()) : null;
@@ -167,6 +175,7 @@ public class GunsonuServiceImpl implements GunsonuService {
 
         PortfoyOzetGunluk ozet = PortfoyOzetGunluk.builder()
                 .tarih(tarih)
+                .kullanici(kullanici)
                 .toplamMaliyet(toplamMaliyet)
                 .toplamDeger(toplamDeger)
                 .toplamKarZararTl(toplamKarZararTl)

@@ -5,6 +5,7 @@ import com.portfolio.dto.request.IslemRequest;
 import com.portfolio.dto.response.IslemDto;
 import com.portfolio.entity.Hisse;
 import com.portfolio.entity.IslemTuru;
+import com.portfolio.entity.Kullanici;
 import com.portfolio.entity.PortfoyIslem;
 import com.portfolio.entity.PortfoyPozisyon;
 import com.portfolio.exception.BusinessException;
@@ -12,6 +13,7 @@ import com.portfolio.exception.ResourceNotFoundException;
 import com.portfolio.repository.HisseRepository;
 import com.portfolio.repository.IslemRepository;
 import com.portfolio.repository.PozisyonRepository;
+import com.portfolio.security.SecurityUtil;
 import com.portfolio.service.IslemService;
 import com.portfolio.service.PozisyonService;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,7 @@ public class IslemServiceImpl implements IslemService {
     private final HisseRepository hisseRepository;
     private final PozisyonRepository pozisyonRepository;
     private final PozisyonService pozisyonService;
+    private final SecurityUtil securityUtil;
 
     @Override
     @Transactional
@@ -44,12 +47,15 @@ public class IslemServiceImpl implements IslemService {
         BigDecimal komisyon = request.komisyon() != null ? request.komisyon() : BigDecimal.ZERO;
 
         if (request.islemTuru() == IslemTuru.SATIM) {
-            dogrulaYeterliLot(hisse, request.lot());
+            dogrulaYeterliLot(hisse, request.lot(), securityUtil.getCurrentKullaniciId());
         }
+
+        Kullanici kullanici = securityUtil.getCurrentKullanici();
 
         BigDecimal toplamTutar = hesaplaToplamTutar(request.islemTuru(), request.lot(), request.fiyat(), komisyon);
 
         PortfoyIslem islem = PortfoyIslem.builder()
+                .kullanici(kullanici)
                 .hisse(hisse)
                 .islemTuru(request.islemTuru())
                 .tarih(request.tarih())
@@ -80,6 +86,11 @@ public class IslemServiceImpl implements IslemService {
         PortfoyIslem mevcutIslem = islemRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("İşlem bulunamadı: " + id));
 
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        if (!mevcutIslem.getKullanici().getId().equals(kullaniciId)) {
+            throw new BusinessException("Bu işlemi güncelleme yetkiniz yok");
+        }
+
         Hisse hisse = hisseRepository.findBySembol(request.sembol().toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("Hisse bulunamadı: " + request.sembol()));
 
@@ -107,6 +118,11 @@ public class IslemServiceImpl implements IslemService {
         PortfoyIslem islem = islemRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("İşlem bulunamadı: " + id));
 
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        if (!islem.getKullanici().getId().equals(kullaniciId)) {
+            throw new BusinessException("Bu işlemi silme yetkiniz yok");
+        }
+
         Hisse hisse = islem.getHisse();
         islemRepository.delete(islem);
         pozisyonService.pozisyonuYenidenHesapla(hisse);
@@ -115,16 +131,17 @@ public class IslemServiceImpl implements IslemService {
 
     @Override
     public List<IslemDto> islemleriGetir(IslemFiltre filtre) {
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
         Stream<PortfoyIslem> stream;
 
         if (filtre.baslangic() != null && filtre.bitis() != null) {
-            stream = islemRepository.findByTarihAraligi(filtre.baslangic(), filtre.bitis()).stream();
+            stream = islemRepository.findByKullaniciIdAndTarihAraligi(kullaniciId, filtre.baslangic(), filtre.bitis()).stream();
         } else if (filtre.sembol() != null && !filtre.sembol().isBlank()) {
             Hisse hisse = hisseRepository.findBySembol(filtre.sembol().toUpperCase())
                     .orElseThrow(() -> new ResourceNotFoundException("Hisse bulunamadı: " + filtre.sembol()));
-            stream = islemRepository.findByHisseIdOrderByTarihDesc(hisse.getId()).stream();
+            stream = islemRepository.findByKullaniciIdAndHisseId(kullaniciId, hisse.getId()).stream();
         } else {
-            stream = islemRepository.findAllByOrderByTarihDesc().stream();
+            stream = islemRepository.findByKullaniciId(kullaniciId).stream();
         }
 
         if (filtre.tur() != null) {
@@ -134,8 +151,8 @@ public class IslemServiceImpl implements IslemService {
         return stream.map(IslemDto::from).toList();
     }
 
-    private void dogrulaYeterliLot(Hisse hisse, BigDecimal satilacakLot) {
-        Optional<PortfoyPozisyon> pozisyon = pozisyonRepository.findByHisseId(hisse.getId());
+    private void dogrulaYeterliLot(Hisse hisse, BigDecimal satilacakLot, Long kullaniciId) {
+        Optional<PortfoyPozisyon> pozisyon = pozisyonRepository.findByHisseIdAndKullaniciId(hisse.getId(), kullaniciId);
         BigDecimal mevcutLot = pozisyon.map(PortfoyPozisyon::getToplamLot).orElse(BigDecimal.ZERO);
         if (mevcutLot.compareTo(satilacakLot) < 0) {
             throw new BusinessException("Yetersiz lot: mevcut=" + mevcutLot + ", satılmak istenen=" + satilacakLot);

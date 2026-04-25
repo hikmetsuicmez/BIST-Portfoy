@@ -5,6 +5,7 @@ import com.portfolio.dto.response.ApiResponse;
 import com.portfolio.dto.response.GunsonuDurumDto;
 import com.portfolio.dto.response.GunsonuSonucDto;
 import com.portfolio.dto.response.PortfoyOzetGunlukDto;
+import com.portfolio.security.SecurityUtil;
 import com.portfolio.service.GunsonuService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,27 +22,32 @@ import java.util.List;
 public class GunsonuController {
 
     private final GunsonuService gunsonuService;
+    private final SecurityUtil securityUtil;
 
     @PostMapping("/calistir")
     public ResponseEntity<ApiResponse<GunsonuSonucDto>> gunsonuCalistir(
             @Valid @RequestBody GunsonuRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(gunsonuService.gunsonuCalistir(request.tarih())));
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        return ResponseEntity.ok(ApiResponse.success(gunsonuService.gunsonuCalistir(request.tarih(), kullaniciId)));
     }
 
     @GetMapping("/durum/{tarih}")
     public ResponseEntity<ApiResponse<GunsonuDurumDto>> gunsonuDurum(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tarih) {
-        return ResponseEntity.ok(ApiResponse.success(gunsonuService.gunsonuDurumGetir(tarih)));
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        return ResponseEntity.ok(ApiResponse.success(gunsonuService.gunsonuDurumGetir(tarih, kullaniciId)));
     }
 
     @GetMapping("/gecmis")
     public ResponseEntity<ApiResponse<List<PortfoyOzetGunlukDto>>> gecmisGunsonular() {
-        return ResponseEntity.ok(ApiResponse.success(gunsonuService.gecmisGunsonulariniGetir()));
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        return ResponseEntity.ok(ApiResponse.success(gunsonuService.gecmisGunsonulariniGetir(kullaniciId)));
     }
 
     @GetMapping("/eksik-fiyatlar/{tarih}")
     public ResponseEntity<ApiResponse<List<String>>> eksikFiyatlar(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tarih) {
-        return ResponseEntity.ok(ApiResponse.success(gunsonuService.eksikFiyatlariGetir(tarih)));
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        return ResponseEntity.ok(ApiResponse.success(gunsonuService.eksikFiyatlariGetir(tarih, kullaniciId)));
     }
 }

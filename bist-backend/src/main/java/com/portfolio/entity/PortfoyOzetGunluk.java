@@ -8,7 +8,10 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "portfoy_ozet_gunluk")
+@Table(
+    name = "portfoy_ozet_gunluk",
+    uniqueConstraints = @UniqueConstraint(columnNames = {"tarih", "kullanici_id"})
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,8 +22,12 @@ public class PortfoyOzetGunluk {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private LocalDate tarih;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "kullanici_id", nullable = false)
+    private Kullanici kullanici;
 
     @Column(name = "toplam_maliyet", precision = 16, scale = 4)
     private BigDecimal toplamMaliyet;

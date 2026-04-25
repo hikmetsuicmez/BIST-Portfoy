@@ -8,8 +8,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface GunsonuService {
-    GunsonuSonucDto gunsonuCalistir(LocalDate tarih);
-    GunsonuDurumDto gunsonuDurumGetir(LocalDate tarih);
-    List<PortfoyOzetGunlukDto> gecmisGunsonulariniGetir();
-    List<String> eksikFiyatlariGetir(LocalDate tarih);
+    GunsonuSonucDto gunsonuCalistir(LocalDate tarih, Long kullaniciId);
+    GunsonuDurumDto gunsonuDurumGetir(LocalDate tarih, Long kullaniciId);
+    List<PortfoyOzetGunlukDto> gecmisGunsonulariniGetir(Long kullaniciId);
+    List<String> eksikFiyatlariGetir(LocalDate tarih, Long kullaniciId);
 }

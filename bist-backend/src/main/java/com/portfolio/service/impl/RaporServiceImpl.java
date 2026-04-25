@@ -7,6 +7,7 @@ import com.portfolio.entity.PortfoyIslem;
 import com.portfolio.entity.PortfoyPozisyon;
 import com.portfolio.exception.ResourceNotFoundException;
 import com.portfolio.repository.*;
+import com.portfolio.security.SecurityUtil;
 import com.portfolio.service.PozisyonService;
 import com.portfolio.service.RaporService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class RaporServiceImpl implements RaporService {
     private final OzetGunlukRepository ozetGunlukRepository;
     private final HisseRepository hisseRepository;
     private final PozisyonService pozisyonService;
+    private final SecurityUtil securityUtil;
 
     @Override
     public PortfoyOzetRaporDto portfoyOzetRaporu() {
@@ -60,7 +62,8 @@ public class RaporServiceImpl implements RaporService {
 
     @Override
     public IslemGecmisiRaporDto islemGecmisiRaporu(LocalDate baslangic, LocalDate bitis) {
-        List<PortfoyIslem> islemler = islemRepository.findByTarihAraligi(baslangic, bitis);
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        List<PortfoyIslem> islemler = islemRepository.findByKullaniciIdAndTarihAraligi(kullaniciId, baslangic, bitis);
 
         BigDecimal toplamAlim = islemler.stream()
                 .filter(i -> i.getIslemTuru() == IslemTuru.ALIM)
@@ -83,8 +86,9 @@ public class RaporServiceImpl implements RaporService {
 
     @Override
     public PerformansRaporDto performansRaporu(LocalDate baslangic, LocalDate bitis) {
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
         List<PortfoyOzetGunlukDto> snapshots = ozetGunlukRepository
-                .findByTarihAraligi(baslangic, bitis)
+                .findByKullaniciIdAndTarihAraligi(kullaniciId, baslangic, bitis)
                 .stream()
                 .map(PortfoyOzetGunlukDto::from)
                 .toList();
@@ -112,10 +116,11 @@ public class RaporServiceImpl implements RaporService {
         Hisse hisse = hisseRepository.findBySembol(sembol.toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("Hisse bulunamadı: " + sembol));
 
-        PortfoyPozisyon pozisyon = pozisyonRepository.findByHisseId(hisse.getId())
+        Long kullaniciId = securityUtil.getCurrentKullaniciId();
+        PortfoyPozisyon pozisyon = pozisyonRepository.findByHisseIdAndKullaniciId(hisse.getId(), kullaniciId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pozisyon bulunamadı: " + sembol));
 
-        List<IslemDto> islemler = islemRepository.findByHisseIdOrderByTarihDesc(hisse.getId())
+        List<IslemDto> islemler = islemRepository.findByKullaniciIdAndHisseId(kullaniciId, hisse.getId())
                 .stream().map(IslemDto::from).toList();
 
         List<KapanisFiyatDto> fiyatlar = kapanisFiyatRepository

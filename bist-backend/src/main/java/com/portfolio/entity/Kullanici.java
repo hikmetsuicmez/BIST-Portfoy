@@ -32,6 +32,14 @@ public class Kullanici {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
+    @Column
+    @Builder.Default
+    private Boolean aktif = true;
+
+    @Column(name = "email_dogrulandi")
+    @Builder.Default
+    private Boolean emailDogrulandi = true;
+
     @PrePersist
     void prePersist() {
         createdAt = updatedAt = OffsetDateTime.now();

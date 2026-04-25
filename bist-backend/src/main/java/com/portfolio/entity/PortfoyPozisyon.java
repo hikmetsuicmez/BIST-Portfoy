@@ -8,7 +8,10 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "portfoy_pozisyonlari")
+@Table(
+    name = "portfoy_pozisyonlari",
+    uniqueConstraints = @UniqueConstraint(columnNames = {"hisse_id", "kullanici_id"})
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,8 +22,12 @@ public class PortfoyPozisyon {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hisse_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "kullanici_id", nullable = false)
+    private Kullanici kullanici;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hisse_id", nullable = false)
     private Hisse hisse;
 
     @Column(name = "toplam_lot", precision = 12, scale = 4)
